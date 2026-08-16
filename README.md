@@ -12,7 +12,7 @@ A glanceable PvM card that answers one question at a glance: **melee, ranged, or
 - No panel background and no outer card border — just the cells, for a minimal look against the game world. (RuneLite's own overlay-edit-mode highlight still outlines the card while you're repositioning it.)
 - Official OSRS sprites only, rendered large and crisp with nearest-neighbor scaling (see [Known limitations](#known-limitations) for why icons are upscaled).
 - Optional, off by default: offense/style mismatch highlight (red cell border when the active offensive prayer doesn't match your current attack style).
-- Optional, off by default: attack-timer bar — a thin horizontal bar under the attack-style icon showing your swing/cast/cooldown progress, same amber-to-mint fill as the tick track bar. Best-effort; hidden whenever the cadence isn't confidently known rather than showing a guess. A light taste of TickFlow's cooldown HUD, not a replacement for it.
+- Optional, off by default: attack-timer bar — a thin horizontal bar under the attack-style icon showing your swing/cast/cooldown progress, same amber-to-mint fill as the tick track bar, plus a bold centered ticks-remaining number on the (dimmed) icon. Best-effort; hidden whenever the cadence isn't confidently known rather than showing a guess. A light taste of TickFlow's cooldown HUD, not a replacement for it.
 - Optional, off by default: tick-progress bar — a generic amber-to-mint tick heartbeat beside the overhead cell, matching TickFlow's square-mode tick-pulse fill visual.
 - Optional, off by default: tick sound — the same soft synthesized metronome blip as TickFlow, once per game tick. Unlike TickFlow, there are no mute/volume buttons on the overlay itself — it's a config-panel-only setting, so the card stays a passive readout.
 - Optional debug diagnostics: raw prayer names, weapon category, style index, and attack-timer state.
@@ -69,7 +69,7 @@ Treat `.runelite/credentials.properties` as a secret. Never print, commit, copy,
 ./gradlew build
 ```
 
-Both are green as of this writing: 43 unit tests across style mapping, prayer classification, sprite mapping, snapshot/state behavior, and the attack-cycle tracker, plus a full `build`.
+Both are green as of this writing: 46 unit tests across style mapping, prayer classification, sprite mapping, snapshot/state behavior, the attack-cycle tracker, and the attack-animation allowlist, plus a full `build`.
 
 ### Performance notes
 
@@ -80,6 +80,8 @@ Both are green as of this writing: 43 unit tests across style mapping, prayer cl
 The first version of the attack-timer feature required a fresh, correctly-timed observation of *every single attack* to keep showing anything, ported from TickFlow's rolling-timeline tracker. In practice it barely showed at all: many weapons don't return to an idle animation between swings, so the only detection signal available (`AnimationChanged`) simply doesn't re-fire for each attack, and a single observation that didn't match the previous prediction discarded all learned state back to "unknown."
 
 It's been rebuilt around a much simpler model: once the weapon's attack speed is known and combat with a target has started, the cycle free-runs every `speedTicks` ticks from that one anchor point — pure tick arithmetic, no drift, no per-attack reconfirmation required. An observed attack (still animation-based, best-effort) re-anchors to self-correct any phase error when it arrives, but a missed or mistimed observation no longer hides the bar. Precision is deliberately traded for reliability — this shows roughly which part of the cycle you're in, not a tick-perfect timeline (that's still TickFlow).
+
+A second, related bug: the "observed attack" signal originally fired on *any* animation change while fighting (`animation > 0`), which is too loose — eating, fletching, and other non-attack animations were re-anchoring the cycle to the wrong tick, making the bar drift out of sync with when attacks actually landed. Fixed with `AttackAnimations`, a bounded, hand-curated allowlist of real attack animation IDs (melee stances, bows/crossbows/blowpipe/thrown ammo, standard-book spellcasting) cross-checked against a real published RuneLite plugin (`ngraves95/attacktimer`) and verified against this project's resolved `AnimationID` constants. It's not exhaustive by design — under-covering is safe since the free-running cycle above keeps the bar showing even without a fresh re-anchor.
 
 ## Configuration
 
@@ -122,6 +124,8 @@ Automated unit tests cover the pure logic (style mapping, prayer classification/
 - [ ] Attack-timer bar: off by default; when enabled, bar appears once cadence is confidently known and clears on weapon swap / target change / logout rather than showing a stale value
 - [ ] Attack-timer bar, toggled on **while already fighting with a weapon equipped**: bar should still appear (weapon speed is resolved immediately on the toggle, not only on the next weapon swap)
 - [ ] Attack-timer bar stays visible/consistent across many consecutive attacks with the same weapon, not just the first one
+- [ ] Attack-timer bar shows a legible centered ticks-remaining number on the (dimmed) attack-style icon, in addition to the bar, and it counts down to 0 each cycle
+- [ ] Attack-timer bar restarts promptly after each completed attack for common weapon types (a melee weapon, a bow or crossbow, and a standard-spellbook cast), not just on the first attack of a fight
 - [ ] Tick track bar: off by default; when enabled, fills and resets every game tick
 - [ ] Tick sound: off by default; when enabled, plays a soft blip every game tick at the configured volume, with no controls on the overlay itself; stops immediately when disabled and on plugin shutdown
 - [ ] No noticeable FPS impact, no exceptions in the client log

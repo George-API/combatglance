@@ -69,6 +69,7 @@ src/main/java/com/combatglance/
   PrayerSprites.java
   CombatGlanceIcons.java
   AttackCycleTracker.java       # opt-in attack-timer bar only — free-running tick-anchor model, see §4.2/§9.3
+  AttackAnimations.java         # opt-in attack-timer bar only — bounded animation-ID allowlist that drives re-anchoring, see §4.2
   TickMetronome.java            # opt-in tick sound only — copied verbatim from TickFlow, see §10/§11
 
 src/test/java/com/combatglance/
@@ -79,6 +80,7 @@ src/test/java/com/combatglance/
   CombatGlanceSnapshotTest.java
   PrayerSpritesTest.java
   AttackCycleTrackerTest.java
+  AttackAnimationsTest.java
 
 src/test/resources/
   logback-test.xml
@@ -166,6 +168,8 @@ Do not expose mutable collections to the overlay. Do not update state from `rend
 The current model needs only two things to show something: a known `speedTicks` (from `ItemEquipmentStats#getAspeed`) and one anchor tick (when combat with the current target began). From there `AttackCycleTracker.ticksUntilReady`/`elapsedFraction` are pure modulo arithmetic against that anchor — no drift, no per-attack reconfirmation. `onAttackObserved` still exists and still re-anchors when it fires, correcting phase error opportunistically, but a missed or mistimed observation no longer discards anything. See `AttackCycleTracker`'s own class javadoc for the full rationale before changing this again.
 
 **Real bug found in QA, now fixed — read before touching this again:** weapon attack speed was originally only pushed into the tracker on a weapon-*change* event (`ItemContainerChanged` detecting a different weapon id). That means enabling `showAttackTimer` mid-session, with a weapon already equipped from before the toggle was flipped, left the tracker with no weapon-speed knowledge at all until the next swap. This is exactly the "toggle a setting on while already fighting" scenario a real user will hit first. Fix: subscribe to `ConfigChanged`, and when `showAttackTimer` becomes enabled, immediately resolve and push the *currently* cached weapon's attack speed (via `clientThread.invoke`, since this touches client-thread-confined state) rather than waiting for a swap that may never come.
+
+**Real bug found in QA, now fixed — read before touching this again:** `onAnimationChanged` originally re-anchored on *any* animation change while the player had an interacting target (`local.getAnimation() > 0`). That's far too loose — eating, fletching, most emotes, and plenty of other non-attack animations happen mid-fight and were each nuking the cycle's phase to the wrong tick, which is exactly why the bar looked like it "didn't restart precisely after every completed attack": it was restarting on the wrong things. Fixed by checking each animation ID against `AttackAnimations.isAttack(int)` — a bounded, hand-curated allowlist of real attack animation IDs (melee stances, bows/crossbows/blowpipe/thrown ammo, standard-book spellcasting) cross-checked against a real published reference plugin (`ngraves95/attacktimer`'s `AnimationData.java`) and verified to exist in this project's resolved `net.runelite.api.gameval.AnimationID` via `javap`. Same "explicit list beats a guess" philosophy as `PrayerClassifier` — not exhaustive (no per-boss or per-special-attack entries), but under-covering is safe here since a missed animation just skips one re-anchor opportunity and the free-running cycle keeps the bar showing regardless (see the redesign note above). The attack-style cell also now shows a bold centered ticks-remaining number (icon dimmed behind it) alongside the bar, so the countdown is legible without needing to read bar-fill length by eye.
 
 **Known, accepted limitation — do not try to silently "fix" this without discussing scope first:** attack detection here is `AnimationChanged`-only (`local.getAnimation() > 0 && local.getInteracting() != null`), unlike TickFlow's primary signal (classifying "Attack" menu clicks via `MenuOptionClicked`, with animation only as corroboration). Two consequences, both inherent to this simpler design, not implementation bugs:
 1. Weapons whose attack animation doesn't reset to an idle value between swings may not re-fire `AnimationChanged` for every attack, since the event only fires on an actual value *change*. Polling `getAnimation()` every tick instead of subscribing to the event would not help — RuneLite's event already fires on exactly that same tick-to-tick value change, so polling can only ever see what the event already reports.

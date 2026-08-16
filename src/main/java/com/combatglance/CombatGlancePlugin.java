@@ -306,7 +306,7 @@ public class CombatGlancePlugin extends Plugin
 		{
 			return;
 		}
-		if (local.getAnimation() > 0 && local.getInteracting() != null)
+		if (local.getInteracting() != null && AttackAnimations.isAttack(local.getAnimation()))
 		{
 			state.onAttackObserved();
 		}

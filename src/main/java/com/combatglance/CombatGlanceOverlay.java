@@ -54,6 +54,9 @@ class CombatGlanceOverlay extends Overlay
 	private static final Color PULSE_END = new Color(0, 220, 165);
 	private static final int BASE_PULSE_H = 10;
 	private static final int BASE_ATTACK_BAR_H = 6;
+	private static final int BASE_COUNTDOWN_FONT_SIZE = 20;
+	private static final Color COUNTDOWN_TEXT = new Color(255, 255, 255);
+	private static final Color COUNTDOWN_SHADOW = new Color(0, 0, 0, 200);
 
 	private static final AlphaComposite DIM_COMPOSITE = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.35f);
 
@@ -161,14 +164,16 @@ class CombatGlanceOverlay extends Overlay
 		}
 
 		BufferedImage styleIcon = icons.attackIcon(snap.getCombatStyle(), iconSize);
+		boolean timerActive = config.showAttackTimer() && snap.isAttackTimerKnown();
 		drawCell(graphics, labelFont, styleX, y, cellSize, iconSize, labelH, showLabels,
-			styleIcon, styleLabel(snap.getCombatStyle()), accentBorder(snap.getCombatStyle()), accentFill(snap.getCombatStyle()), false);
-		if (config.showAttackTimer() && snap.isAttackTimerKnown())
+			styleIcon, styleLabel(snap.getCombatStyle()), accentBorder(snap.getCombatStyle()), accentFill(snap.getCombatStyle()), timerActive);
+		if (timerActive)
 		{
 			int barInset = Math.max(2, cellPad / 2);
 			int barY = y + cellSize - attackBarH - barInset;
 			double progress = snap.getTicksUntilAttackReady() == 0 ? 1.0 : snap.getAttackCycleFraction();
 			drawBar(graphics, styleX + barInset, barY, cellSize - barInset * 2, attackBarH, progress);
+			drawAttackCountdown(graphics, styleX, y, cellSize, snap.getTicksUntilAttackReady(), scalePct);
 		}
 
 		Prayer offense = snap.getOffensivePrayer();
@@ -310,6 +315,25 @@ class CombatGlanceOverlay extends Overlay
 		int markerX = innerX + Math.max(0, fillW - 1);
 		g.setColor(PULSE_MARKER);
 		g.fillRect(markerX, trackY - 1, 2, trackH + 2);
+	}
+
+	/**
+	 * Ticks-until-ready, centered in the attack-style cell (icon dimmed behind it for legibility
+	 * — see the {@code timerActive} dim flag on the {@link #drawCell} call above). 0 reads as
+	 * "ready now", matching the full bar {@link #drawBar} shows at the same instant.
+	 */
+	private void drawAttackCountdown(Graphics2D g, int x, int y, int cellSize, int ticksUntilReady, int scalePct)
+	{
+		String text = Integer.toString(Math.max(0, ticksUntilReady));
+		Font font = FontManager.getRunescapeBoldFont().deriveFont((float) scale(BASE_COUNTDOWN_FONT_SIZE, scalePct));
+		g.setFont(font);
+		FontMetrics fm = g.getFontMetrics();
+		int tx = x + (cellSize - fm.stringWidth(text)) / 2;
+		int ty = y + (cellSize + fm.getAscent() - fm.getDescent()) / 2;
+		g.setColor(COUNTDOWN_SHADOW);
+		g.drawString(text, tx + 1, ty + 1);
+		g.setColor(COUNTDOWN_TEXT);
+		g.drawString(text, tx, ty);
 	}
 
 	private List<String> buildDebugLines(CombatGlanceSnapshot snap)
