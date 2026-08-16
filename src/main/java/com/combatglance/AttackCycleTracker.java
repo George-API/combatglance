@@ -108,7 +108,12 @@ final class AttackCycleTracker
 		return speedTicks > 0 && anchorTick >= 0;
 	}
 
-	/** Ticks remaining until ready, or -1 when not known — never a guess. 0 means ready now. */
+	/**
+	 * Ticks remaining until ready, or -1 when not known — never a guess. 0 means ready now, i.e.
+	 * this is the last tick of the wait — matches {@link #elapsedFraction} reading 1.0 (full bar)
+	 * on that same tick; see that method's javadoc for why the current tick counts as fully
+	 * elapsed rather than just-started.
+	 */
 	int ticksUntilReady(long tickIndex)
 	{
 		if (!isKnown())
@@ -116,10 +121,19 @@ final class AttackCycleTracker
 			return -1;
 		}
 		long intoCycle = Math.floorMod(tickIndex - anchorTick, speedTicks);
-		return (int) ((speedTicks - intoCycle) % speedTicks);
+		return (int) (speedTicks - 1 - intoCycle);
 	}
 
-	/** Fraction of the current cycle elapsed, in [0, 1), for the bar sweep. -1 when unknown. */
+	/**
+	 * Fraction of the current cycle elapsed, in {@code (0, 1]}, for the bar sweep. -1 when
+	 * unknown. The tick a game tick is currently on counts as fully elapsed for that whole tick's
+	 * ~0.6s render duration — i.e. {@code intoCycle} is 1-indexed, not 0-indexed — so the last
+	 * waiting tick reads 1.0 (bar completely full) for its entire duration rather than only for a
+	 * single boundary instant that's immediately overwritten by the next re-anchor. A 0-indexed
+	 * fraction (the first version of this method) tops out at {@code (speedTicks-1)/speedTicks}
+	 * and never visibly reaches the end of the bar — exactly the "ends just before the end of the
+	 * bar" bug this was rewritten to fix.
+	 */
 	double elapsedFraction(long tickIndex)
 	{
 		if (!isKnown())
@@ -127,7 +141,7 @@ final class AttackCycleTracker
 			return -1;
 		}
 		long intoCycle = Math.floorMod(tickIndex - anchorTick, speedTicks);
-		return intoCycle / (double) speedTicks;
+		return (intoCycle + 1) / (double) speedTicks;
 	}
 
 	/** Full reset — logout, hop, death, plugin disable. Clears the known weapon speed too. */

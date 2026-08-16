@@ -171,8 +171,9 @@ class CombatGlanceOverlay extends Overlay
 		{
 			int barInset = Math.max(2, cellPad / 2);
 			int barY = y + cellSize - attackBarH - barInset;
-			double progress = snap.getTicksUntilAttackReady() == 0 ? 1.0 : snap.getAttackCycleFraction();
-			drawBar(graphics, styleX + barInset, barY, cellSize - barInset * 2, attackBarH, progress);
+			// AttackCycleTracker#elapsedFraction is already 1-indexed per tick, so it reads 1.0
+			// (bar fully filled) for the whole final waiting tick — no boundary special-case needed.
+			drawBar(graphics, styleX + barInset, barY, cellSize - barInset * 2, attackBarH, snap.getAttackCycleFraction());
 			drawAttackCountdown(graphics, styleX, y, cellSize, snap.getTicksUntilAttackReady(), scalePct);
 		}
 

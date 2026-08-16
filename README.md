@@ -85,6 +85,8 @@ It's been rebuilt around a much simpler model: once the weapon's attack speed is
 
 A second, related bug: the "observed attack" signal originally fired on *any* animation change while fighting (`animation > 0`), which is too loose — eating, fletching, and other non-attack animations were re-anchoring the cycle to the wrong tick, making the bar drift out of sync with when attacks actually landed. Fixed with `AttackAnimations`, a bounded, hand-curated allowlist of real attack animation IDs (melee stances, bows/crossbows/blowpipe/thrown ammo, standard-book spellcasting) cross-checked against a real published RuneLite plugin (`ngraves95/attacktimer`) and verified against this project's resolved `AnimationID` constants. It's not exhaustive by design — under-covering is safe since the free-running cycle above keeps the bar showing even without a fresh re-anchor.
 
+A third bug, purely visual: the bar's fill fraction was 0-indexed against ticks into the cycle, so across a `speedTicks`-length cycle it only ever reached `(speedTicks-1)/speedTicks` (75% for a 4-tick weapon) before resetting — it never actually touched the right edge of the bar. Fixed by making the fill 1-indexed: the tick currently in progress counts as fully elapsed for its whole ~0.6s render duration, so the last waiting tick before the next attack now reads a completely full bar, not just short of it.
+
 ## Configuration
 
 All settings live under **Combat Glance** in the RuneLite plugin panel:

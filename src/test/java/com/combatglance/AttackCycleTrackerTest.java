@@ -33,11 +33,11 @@ public class AttackCycleTrackerTest
 		tracker.setWeaponSpeed(4);
 		tracker.noteEngagement(10, "goblin#1");
 
-		assertEquals(0, tracker.ticksUntilReady(10));
-		assertEquals(3, tracker.ticksUntilReady(11));
-		assertEquals(1, tracker.ticksUntilReady(13));
-		assertEquals(0, tracker.ticksUntilReady(14));
-		assertEquals(3, tracker.ticksUntilReady(15));
+		assertEquals(3, tracker.ticksUntilReady(10));
+		assertEquals(2, tracker.ticksUntilReady(11));
+		assertEquals(0, tracker.ticksUntilReady(13));
+		assertEquals(3, tracker.ticksUntilReady(14));
+		assertEquals(2, tracker.ticksUntilReady(15));
 	}
 
 	@Test
@@ -52,7 +52,9 @@ public class AttackCycleTrackerTest
 
 		for (int cycle = 0; cycle < 20; cycle++)
 		{
-			long tick = (long) cycle * 5;
+			// Last waiting tick of each cycle — the bar should read fully ready right before the
+			// next attack fires, not on the (ambiguous) boundary tick shared with the next cycle.
+			long tick = (long) cycle * 5 + 4;
 			assertEquals("cycle " + cycle, 0, tracker.ticksUntilReady(tick));
 		}
 	}
@@ -66,8 +68,8 @@ public class AttackCycleTrackerTest
 		// modifier) — the observation re-anchors rather than being rejected as "impossible".
 		tracker.onAttackObserved(3);
 
-		assertEquals(0, tracker.ticksUntilReady(3));
-		assertEquals(3, tracker.ticksUntilReady(4));
+		assertEquals(3, tracker.ticksUntilReady(3));
+		assertEquals(2, tracker.ticksUntilReady(4));
 	}
 
 	@Test
@@ -82,7 +84,7 @@ public class AttackCycleTrackerTest
 
 		tracker.noteEngagement(10, "goblin#1");
 		assertTrue(tracker.isKnown());
-		assertEquals(0, tracker.ticksUntilReady(10));
+		assertEquals(4, tracker.ticksUntilReady(10));
 	}
 
 	@Test
@@ -91,7 +93,7 @@ public class AttackCycleTrackerTest
 		tracker.setWeaponSpeed(4);
 		tracker.noteEngagement(0, "goblin#1");
 		tracker.setWeaponSpeed(4);
-		assertEquals(2, tracker.ticksUntilReady(2));
+		assertEquals(1, tracker.ticksUntilReady(2));
 	}
 
 	@Test
@@ -100,10 +102,10 @@ public class AttackCycleTrackerTest
 		tracker.setWeaponSpeed(4);
 		tracker.noteEngagement(0, "goblin#1");
 		tracker.noteEngagement(2, "goblin#1");
-		assertEquals(2, tracker.ticksUntilReady(2));
+		assertEquals(1, tracker.ticksUntilReady(2));
 
 		tracker.noteEngagement(2, "cow#2");
-		assertEquals(0, tracker.ticksUntilReady(2));
+		assertEquals(3, tracker.ticksUntilReady(2));
 	}
 
 	@Test
@@ -126,15 +128,17 @@ public class AttackCycleTrackerTest
 	}
 
 	@Test
-	public void elapsedFractionTracksProgressThroughTheCycle()
+	public void elapsedFractionTracksProgressThroughTheCycleAndFillsCompletelyOnTheFinalTick()
 	{
 		tracker.setWeaponSpeed(4);
 		tracker.noteEngagement(0, "goblin#1");
 
-		assertEquals(0.0, tracker.elapsedFraction(0), 0.0001);
-		assertEquals(0.5, tracker.elapsedFraction(2), 0.0001);
-		assertEquals(0.75, tracker.elapsedFraction(3), 0.0001);
-		assertEquals(0.0, tracker.elapsedFraction(4), 0.0001);
+		assertEquals(0.25, tracker.elapsedFraction(0), 0.0001);
+		assertEquals(0.75, tracker.elapsedFraction(2), 0.0001);
+		// Final waiting tick before the next attack fires — bar must read fully filled here, not
+		// just short of it.
+		assertEquals(1.0, tracker.elapsedFraction(3), 0.0001);
+		assertEquals(0.25, tracker.elapsedFraction(4), 0.0001);
 	}
 
 	@Test
