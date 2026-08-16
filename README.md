@@ -1,5 +1,7 @@
 # Combat Glance
 
+![Combat Glance](cover.png)
+
 A glanceable PvM card that answers one question at a glance: **melee, ranged, or magic — which offensive prayer is on — which overhead is on.**
 
 ## Features
