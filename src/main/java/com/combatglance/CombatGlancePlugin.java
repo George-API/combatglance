@@ -68,8 +68,8 @@ import net.runelite.client.ui.overlay.OverlayManager;
 @Slf4j
 @PluginDescriptor(
 	name = "Combat Glance",
-	description = "Glanceable attack type, offensive prayer, and overhead prayer for PvM.",
-	tags = {"pvm", "combat", "prayer", "overlay", "melee", "ranged", "magic"}
+	description = "Shows your current attack style, offensive prayer, and overhead prayer for PvM.",
+	tags = {"pvm", "combat", "prayer", "melee", "ranged", "magic", "overhead", "overlay"}
 )
 public class CombatGlancePlugin extends Plugin
 {
