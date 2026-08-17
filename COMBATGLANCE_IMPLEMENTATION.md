@@ -784,4 +784,39 @@ At completion, report:
 7. Exact next prompt or human steps to run the development client and validate
 8. Plugin Hub readiness gaps, if any
 
+## 20. QA reference (moved out of README to keep the public-facing doc concise)
+
+### Performance audit notes
+
+`render()` runs every client frame, not every game tick, so allocation there compounds fast. A pre-submission audit found and fixed three real per-frame allocations (the panel frame shape, and — before the attack-timer ring was redesigned into the current bar — its stroke and arc) by caching/reusing scratch objects instead, and fixed one hot-path allocation in `onVarbitChanged` (a boxed-`Integer` `HashSet` lookup on every varbit change client-wide, most of them irrelevant to this plugin) by switching to a sorted `int[]` with binary search. No known allocation hotspots remain in the render or per-tick paths.
+
+### Manual validation checklist
+
+Automated unit tests cover the pure logic (style mapping, prayer classification/priority, snapshot/reset behavior, sprite mapping, the attack-cycle tracker, the attack-animation allowlist). The following require a live OSRS client and are not covered by automated tests — run through this list before publishing an update:
+
+- [ ] Login and enable the plugin; overlay appears and is movable (drag while in overlay-edit mode)
+- [ ] Unarmed shows Melee
+- [ ] Scimitar/whip/fang show Melee
+- [ ] Shortbow/crossbow/blowpipe show Ranged
+- [ ] Trident/powered staff show Magic
+- [ ] A hybrid staff on a melee style (e.g. Crush) shows Melee; switched to autocast/casting shows Magic
+- [ ] Piety / Rigour / Augury each occupy the offense slot when activated
+- [ ] Deactivating all offense prayers shows a calm None, card does not collapse
+- [ ] Protect from Melee / Missiles / Magic each occupy the defense slot with the correct sprite
+- [ ] Deactivating the overhead shows None
+- [ ] Steel Skin / Protect Item / Preserve / Rapid Heal never occupy either slot
+- [ ] Weapon swap updates the attack type without restarting the plugin
+- [ ] Overhead swap updates promptly enough to be useful mid-fight
+- [ ] Logout / world hop / death / plugin disable clears or hides the card
+- [ ] Learn Mode and Compact Mode both preserve the fixed slot order (Defense top, Offense bottom)
+- [ ] Offense/style mismatch highlight: off by default; when enabled, Rigour-while-meleeing turns the offense border red, Piety-while-meleeing does not
+- [ ] Attack-timer bar: off by default; when enabled, bar appears once cadence is confidently known and clears on weapon swap / target change / logout rather than showing a stale value
+- [ ] Attack-timer bar, toggled on while already fighting with a weapon equipped: bar should still appear (weapon speed is resolved immediately on the toggle, not only on the next weapon swap)
+- [ ] Attack-timer bar stays visible/consistent across many consecutive attacks with the same weapon, not just the first one
+- [ ] Attack-timer bar shows a legible centered ticks-remaining number on the (dimmed) attack-style icon, in addition to the bar, and it counts down to 0 each cycle
+- [ ] Attack-timer bar restarts promptly after each completed attack for common weapon types (a melee weapon, a bow or crossbow, and a standard-spellbook cast), not just on the first attack of a fight
+- [ ] Tick track bar: off by default; when enabled, fills and resets every game tick
+- [ ] Tick sound: off by default; when enabled, plays a soft blip every game tick at the configured volume, with no controls on the overlay itself; stops immediately when disabled and on plugin shutdown
+- [ ] No noticeable FPS impact, no exceptions in the client log
+
 Do not claim live gameplay validation unless it actually occurred.
